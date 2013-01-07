@@ -1,0 +1,131 @@
+#!/bin/bash
+
+echo 'mounting filesystems'
+# remount / using fstab
+/bin/mount -o remount /
+
+#clean up mtab (nothing is mounted except /)
+#/etc must exist (TODO really?) because mount is using /etc/fstab
+rm /etc/mtab
+
+#mount everything, on a nice empty mtab
+/bin/mount -o remount /
+/bin/mount -a
+
+# fix /dev and make /dev/pts for mounting on
+/bin/mount -o remount /dev
+#TODO can this be less hardcoded?
+mkdir /dev/pts
+/bin/mount /dev/pts
+
+# enable swap
+echo 'enabling swap'
+/sbin/swapon -a
+
+#TODO dev shm?
+
+# set hostname
+echo 'setting hostname'
+/usr/bin/hostname "$(/usr/bin/cat /etc/hostname)"
+
+echo 'setting device permissions'
+
+# audio device permissions
+/bin/chown root:audio /dev/snd/*
+chmod g+rw /dev/snd/*
+
+# video device permissions
+/bin/chown root:video /dev/fb*
+chmod g+rw /dev/fb*
+
+# hotplug?
+
+echo 'setting up console'
+# console settings
+/usr/bin/setfont
+#TODO complains about stty, where is the command stty?
+/usr/bin/unicode_start
+
+function startok {
+	echo -n "$1"
+	shift
+	if "$@"; then
+		echo ' ...OK'
+		return 0
+	else
+		echo ' ...ERROR'
+		return 1
+	fi
+}
+
+# start the syslog daemon
+startok 'starting kernel log daemon' /sbin/klogd -c 2
+startok 'starting system log daemon' /sbin/syslogd
+
+# start network
+echo 'starting the network'
+startok 'adding ip 192.168.1.2/24' /sbin/ip address add 192.168.1.2/24 dev eth0
+startok 'raising eth0' /sbin/ip link set eth0 up
+startok 'setting gateway 192.168.1.1' /sbin/ip route add default via 192.168.1.1
+echo 'network done'
+
+# start the console mouse daemon
+startok 'starting the console mouse daemon' /usr/sbin/gpm -m /dev/input/mice -t imps2
+
+# utility to repeatedly respawn a vty
+#TODO is there a better way to do this?
+#TODO currently openvt is there to set the controlling tty otherwise bash complains there's no job control
+function respawnvty {
+	local n="$1"
+	shift
+	while /bin/true; do
+		/usr/bin/openvt -f -c "$n" -w -- /sbin/agetty "$@" tty"$n" 9600
+	done
+}
+
+# start consoles
+respawnvty 1 --noclear &
+respawnvty 2 &
+respawnvty 3 &
+respawnvty 4 &
+respawnvty 5 &
+respawnvty 6 &
+
+# set up traps for shutdown and reboot
+
+function down {
+	echo 'sending SIGTERM to all processes'
+	kill -TERM -1
+	sleep 5
+	echo 'sending SIGKILL to all processes'
+	kill -KILL -1
+	sleep 1
+	echo 'syncing disks'
+	/bin/sync
+	echo 'unmounting or mounting readonly'
+	/bin/umount -n -a -r
+	# loop remounting / because sometimes mount reports / is busy
+	echo 'remounting / readonly'
+	while ! /bin/mount -n -r -o remount /; do
+		echo 'remount failed, trying again in 2 seconds'
+		sleep 2
+	done
+}
+
+function poweroff {
+	echo 'POWEROFF'
+	down
+	echo o > /proc/sysrq-trigger
+}
+
+function reboot {
+	echo 'REBOOT'
+	down
+	echo b > /proc/sysrq-trigger
+}
+
+trap poweroff sigusr1
+trap reboot sigusr2
+
+# never die, while still getting signals
+while /bin/true; do sleep 10000; done & wait "$!"
