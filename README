@@ -11,7 +11,7 @@ Requirements:
 
 Goals:
 -configurable without editing /sbin/init
--a configuration to act as a drop in replacement for SysVinit (and maybe even systemd)
+-a configuration to act as a drop in replacement for SysVinit (or systemd)
 -fast bootup
 -easy to configure (for experts, not beginners)
 
