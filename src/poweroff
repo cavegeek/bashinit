@@ -1,0 +1,9 @@
+#!/bin/bash
+
+#
+# This program is part of bashinit, copyright 2013 Jason Stumpf
+# It is licensed under the GNU General Public License version 3 or later.
+# See LICENSE and gpl.txt for more information.
+#
+
+kill -usr1 1

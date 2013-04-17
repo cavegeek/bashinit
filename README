@@ -1,0 +1,18 @@
+bashinit
+
+Common init programs like SysVinit and systemd are huge and slow, but all they
+actually do is run bash scripts and other programs.  Bash excels at running
+bash scripts and other programs, so bashinit is an init written in bash.
+
+Requirements:
+-devtmpfs set to mount on /dev, or a static /dev
+-bash
+-a few other standard programs
+
+Goals:
+-configurable without editing /sbin/init
+-a configuration to act as a drop in replacement for SysVinit (and maybe even systemd)
+-fast bootup
+-easy to configure (for experts, not beginners)
+
+

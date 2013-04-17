@@ -1,0 +1,6 @@
+as root:
+
+cp -v src/{init,poweroff,reboot} /sbin/init
+
+until configuration is working, you'll want to edit init to start the daemons
+that are right for you
